@@ -8,7 +8,7 @@ import type {
   SessionEvent,
 } from '../types';
 import { defaultFilters } from '../types';
-import { getMockSessionList, getMockSessionDetail } from '../api';
+import { fetchSessionList, fetchSessionDetail } from '../api';
 import { calculateSeverity } from '../utils/severity';
 import { applyFilters } from '../utils/filters';
 
@@ -50,6 +50,9 @@ interface SessionStore {
 
 const ALL_CATEGORIES: EventCategory[] = ['nav', 'ui', 'net', 'error', 'perf', 'unknown'];
 
+// Mutex to prevent concurrent loadMore calls
+let isLoadingMutex = false;
+
 export const useSessionStore = create<SessionStore>((set, get) => ({
   // Initial state
   allSessions: [],
@@ -70,15 +73,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   // Load more sessions (pagination)
   loadMore: async () => {
-    const state = get();
-    if (state.isLoading || !state.hasMore) return;
-
+    // Use mutex to prevent race conditions (React Strict Mode, double calls)
+    if (isLoadingMutex || !get().hasMore) return;
+    isLoadingMutex = true;
     set({ isLoading: true, error: null });
+
+    const state = get();
 
     try {
       const nextPage = state.currentPage + 1;
-      // Using mock data for now - replace with actual API call
-      const response = await Promise.resolve(getMockSessionList(nextPage, 50));
+      const response = await fetchSessionList(nextPage, 50);
 
       // Calculate severity for each session
       const sessionsWithSeverity = response.items.map(session => ({
@@ -93,11 +97,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         hasMore: state.allSessions.length + response.items.length < response.total,
         isLoading: false,
       });
+      isLoadingMutex = false;
     } catch (error) {
       set({
         error: error instanceof Error ? error : new Error('Failed to load sessions'),
         isLoading: false,
       });
+      isLoadingMutex = false;
     }
   },
 
@@ -106,8 +112,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set({ isLoadingDetail: true, error: null });
 
     try {
-      // Using mock data for now - replace with actual API call
-      const detail = await Promise.resolve(getMockSessionDetail(id));
+      const detail = await fetchSessionDetail(id);
 
       // Merge stats/flags from list data if available
       const listSession = get().allSessions.find(s => s.id === id);

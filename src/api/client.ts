@@ -1,6 +1,6 @@
 const MAX_RETRIES = 3;
 const BASE_DELAY = 1000;
-const API_BASE_URL = 'https://api.example.com'; // Replace with actual API URL
+const API_BASE_URL = 'http://81.163.27.191:8000';
 
 async function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
