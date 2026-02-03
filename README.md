@@ -149,10 +149,3 @@ GET /session/{session_id}
 5. Export session data (JSON/CSV)
 6. Dark mode support
 7. Full session fetch for accurate clustering comparison
-
-## Testing
-
-Critical logic that would benefit from unit tests:
-- `calculateSeverity()` - monotonicity, outlier resistance
-- `levenshteinDistance()` - correctness on edge cases
-- `analyzeNetworkEvents()` - pending/orphaned detection
