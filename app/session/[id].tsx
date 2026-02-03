@@ -1,6 +1,6 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, ActivityIndicator, Chip, IconButton } from 'react-native-paper';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Text, ActivityIndicator, Chip, Button } from 'react-native-paper';
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useCallback, useState } from 'react';
 import { format } from 'date-fns';
 import { useSessionStore } from '../../src/stores';
@@ -10,8 +10,9 @@ import {
   EventDetails,
   EventNavigator,
   EmptyState,
+  SessionDiff,
+  SimilarSessionsList,
 } from '../../src/components';
-import { getEventCategory } from '../../src/types';
 import type { SessionEvent, EventCategory } from '../../src/types';
 import {
   stableSortEvents,
@@ -20,10 +21,16 @@ import {
   analyzeNetworkEvents,
 } from '../../src/utils/events';
 import { getSeverityLevel, getSeverityColor } from '../../src/utils/severity';
+import {
+  createSignatureFromDetail,
+  findSimilarSessions,
+  generateDiff,
+  estimateSignatureFromList,
+  type SimilarSession,
+} from '../../src/utils/clustering';
 
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
 
   const {
     currentSession,
@@ -38,6 +45,10 @@ export default function SessionDetailScreen() {
   } = useSessionStore();
 
   const [currentEventIndex, setCurrentEventIndex] = useState(-1);
+  const [showSimilar, setShowSimilar] = useState(false);
+  const [similarSessions, setSimilarSessions] = useState<SimilarSession[]>([]);
+  const [selectedSimilar, setSelectedSimilar] = useState<SimilarSession | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Fetch session details on mount
   useEffect(() => {
@@ -85,6 +96,16 @@ export default function SessionDetailScreen() {
     return new Set(orphanedResponses.map(o => o.event.eventId));
   }, [orphanedResponses]);
 
+  // Diff for selected similar session
+  const diff = useMemo(() => {
+    if (!currentSession || !selectedSimilar) return null;
+
+    const sourceSignature = createSignatureFromDetail(currentSession);
+    const targetSignature = estimateSignatureFromList(selectedSimilar.session);
+
+    return generateDiff(sourceSignature.eventTypes, targetSignature.eventTypes);
+  }, [currentSession, selectedSimilar]);
+
   const handleEventPress = useCallback((event: SessionEvent) => {
     setSelectedEvent(event);
     const index = filteredEvents.findIndex(e => e.eventId === event.eventId);
@@ -100,6 +121,32 @@ export default function SessionDetailScreen() {
     setSelectedEvent(null);
     setCurrentEventIndex(-1);
   }, [setSelectedEvent]);
+
+  const handleFindSimilar = useCallback(() => {
+    if (!currentSession) return;
+
+    setShowSimilar(true);
+    setIsSearching(true);
+    setSelectedSimilar(null);
+
+    // Run search async to not block UI
+    setTimeout(() => {
+      const signature = createSignatureFromDetail(currentSession);
+      const results = findSimilarSessions(signature, allSessions, 0.3, 15);
+      setSimilarSessions(results);
+      setIsSearching(false);
+    }, 100);
+  }, [currentSession, allSessions]);
+
+  const handleCloseSimilar = useCallback(() => {
+    setShowSimilar(false);
+    setSelectedSimilar(null);
+    setSimilarSessions([]);
+  }, []);
+
+  const handleSelectSimilar = useCallback((item: SimilarSession) => {
+    setSelectedSimilar(item);
+  }, []);
 
   if (error) {
     return (
@@ -182,7 +229,42 @@ export default function SessionDetailScreen() {
             )}
           </View>
         )}
+
+        {/* Find Similar Button */}
+        <Button
+          mode="outlined"
+          onPress={showSimilar ? handleCloseSimilar : handleFindSimilar}
+          style={styles.similarButton}
+          icon={showSimilar ? 'close' : 'content-copy'}
+          compact
+        >
+          {showSimilar ? 'Hide Similar' : 'Find Similar Sessions'}
+        </Button>
       </View>
+
+      {/* Similar Sessions Section */}
+      {showSimilar && (
+        <View style={styles.section}>
+          <SimilarSessionsList
+            sessions={similarSessions}
+            isLoading={isSearching}
+            selectedId={selectedSimilar?.session.id ?? null}
+            onSelect={handleSelectSimilar}
+          />
+        </View>
+      )}
+
+      {/* Diff Visualization */}
+      {selectedSimilar && diff && (
+        <View style={styles.section}>
+          <SessionDiff
+            sourceId={currentSession.id}
+            targetId={selectedSimilar.session.id}
+            diff={diff}
+            similarity={selectedSimilar.similarity}
+          />
+        </View>
+      )}
 
       {/* Category Filters */}
       <CategoryFilters
@@ -305,12 +387,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginBottom: 12,
   },
   chipError: {
     backgroundColor: '#FFEBEE',
   },
   chipWarning: {
     backgroundColor: '#FFF3E0',
+  },
+  similarButton: {
+    marginTop: 4,
   },
   section: {
     marginHorizontal: 8,
