@@ -21,7 +21,6 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "scheme": "session-analysis"
