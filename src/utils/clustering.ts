@@ -80,12 +80,6 @@ export function estimateSignatureFromList(session: Session): SessionSignature {
   for (let i = 0; i < rageClicks; i++) types.push('ui.rage_click');
   for (let i = 0; i < deadClicks; i++) types.push('ui.dead_click');
 
-  // Fill remaining with generic UI events
-  const remainingEvents = Math.max(0, Math.min(session.eventCount - types.length, 20));
-  for (let i = 0; i < remainingEvents; i++) {
-    types.push('ui.interaction');
-  }
-
   return {
     sessionId: session.id,
     eventTypes: types,

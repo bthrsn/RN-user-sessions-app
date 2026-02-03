@@ -22,7 +22,6 @@ import {
 } from '../../src/utils/events';
 import { getSeverityLevel, getSeverityColor } from '../../src/utils/severity';
 import {
-  createSignatureFromDetail,
   findSimilarSessions,
   generateDiff,
   estimateSignatureFromList,
@@ -98,13 +97,13 @@ export default function SessionDetailScreen() {
 
   // Diff for selected similar session
   const diff = useMemo(() => {
-    if (!currentSession || !selectedSimilar) return null;
+    if (!listSession || !selectedSimilar) return null;
 
-    const sourceSignature = createSignatureFromDetail(currentSession);
+    const sourceSignature = estimateSignatureFromList(listSession);
     const targetSignature = estimateSignatureFromList(selectedSimilar.session);
 
     return generateDiff(sourceSignature.eventTypes, targetSignature.eventTypes);
-  }, [currentSession, selectedSimilar]);
+  }, [listSession, selectedSimilar]);
 
   const handleEventPress = useCallback((event: SessionEvent) => {
     setSelectedEvent(event);
@@ -123,7 +122,7 @@ export default function SessionDetailScreen() {
   }, [setSelectedEvent]);
 
   const handleFindSimilar = useCallback(() => {
-    if (!currentSession) return;
+    if (!listSession) return;
 
     setShowSimilar(true);
     setIsSearching(true);
@@ -131,12 +130,12 @@ export default function SessionDetailScreen() {
 
     // Run search async to not block UI
     setTimeout(() => {
-      const signature = createSignatureFromDetail(currentSession);
+      const signature = estimateSignatureFromList(listSession);
       const results = findSimilarSessions(signature, allSessions, 0.3, 15);
       setSimilarSessions(results);
       setIsSearching(false);
     }, 100);
-  }, [currentSession, allSessions]);
+  }, [listSession, allSessions]);
 
   const handleCloseSimilar = useCallback(() => {
     setShowSimilar(false);

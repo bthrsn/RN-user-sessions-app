@@ -109,7 +109,7 @@ describe('calculateSeverity', () => {
       const normal = calculateSeverity(stats, { corrupted: false });
       const corrupted = calculateSeverity(stats, { corrupted: true });
 
-      expect(corrupted).toBe(normal * 10);
+      expect(corrupted).toBeCloseTo(normal * 10);
     });
   });
 

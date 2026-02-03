@@ -51,12 +51,9 @@ export function calculateSeverity(stats: SessionStats, flags: SessionFlags): num
   let severity = 0;
 
   // Core metrics with logarithmic scaling
-  severity += logScore(stats.jsErrors, WEIGHTS.jsErrors);
-  severity += logScore(stats.consoleErrors, WEIGHTS.consoleErrors);
-  severity += logScore(stats.failedRequests, WEIGHTS.failedRequests);
-  severity += logScore(stats.pendingRequests, WEIGHTS.pendingRequests);
-  severity += logScore(stats.rageClicks, WEIGHTS.rageClicks);
-  severity += logScore(stats.deadClicks, WEIGHTS.deadClicks);
+  for (const key of Object.keys(WEIGHTS) as Array<keyof typeof WEIGHTS>) {
+    severity += logScore(stats[key], WEIGHTS[key]);
+  }
 
   // P95 latency contribution (only when slow)
   if (stats.p95RequestMs > P95_THRESHOLD_MS) {
